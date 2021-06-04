@@ -8,6 +8,7 @@ from collections import Counter
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 
+import pickle
 
 def remove_URL(text):
     url = re.compile(r"https?://\S+|www\.\S+")
@@ -68,6 +69,10 @@ class NLP_preprocess(object):
         counter = counter_word(text)
         self.num_words = len(counter)
         self.tokenizer = Tokenizer(num_words=self.num_words)
+
+    def import_tokenizer(self, path = '../NLP Model Training/tokenizer_1M.pickle'):
+        with open(path, 'rb') as handle:
+            self.tokenizer = pickle.load(handle)
 
     def tokenize_and_pad(self, df = pd.DataFrame(), field="text", train = True):
         if df.empty:
