@@ -113,6 +113,16 @@ class customNLP(object):
         self.verbose = verbose
         date = self.data.index[0].strftime('%Y-%m-%d')
         for index, row in self.data.iterrows():
+            
+            ### This is application specific ##############################
+            ### If the dataset is splitted and suffled ####################
+            ### whenever I move to a new subset (checked by date) #########
+            ### I close all previous open positions at the previous price #
+            if split and date != index.strftime('%Y-%m-%d'):
+                self.close(self.data.loc[prev_index]["Open"], prev_index)
+                date = index.strftime('%Y-%m-%d')
+            ###############################################################
+            ###############################################################
 
             # stoploss
             # We have an open position and an active stoploss
@@ -130,19 +140,11 @@ class customNLP(object):
                         prev_index = index
                         continue
 
+
             # If total balance has gone negative terminate
             if not self.marked_to_market(row[0], index):
                 break
 
-            ### This is application specific ##############################
-            ### If the dataset is splitted and suffled ####################
-            ### whenever I move to a new subset (checked by date) #########
-            ### I close all previous open positions at the previous price #
-            if split and date != index.strftime('%Y-%m-%d'):
-                self.close(self.data.loc[prev_index]["Open"], prev_index)
-                date = index.strftime('%Y-%m-%d')
-            ###############################################################
-            ###############################################################
 
             # apply strategy
             new_position = self.strategy.apply(index, self.position, row[0], self.mtm)

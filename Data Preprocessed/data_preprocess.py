@@ -36,6 +36,11 @@ def remove_punct(text):
     table = str.maketrans("", "", string.punctuation)
     return text.translate(table)
 
+# def remove_punct(text):
+#     spam_words = ['free', 'offer', 'free!']
+#     table = str.maketrans("", "", string.punctuation)
+#     return text.translate(table)
+
 stop = set(stopwords.words("english"))
 
 def lowercase_remove_stopwords(text):
@@ -51,12 +56,13 @@ def counter_word(text):
 
 class NLP_preprocess(object):
     # Count unique words
-    def __init__(self, df):
+    def __init__(self, df, max_len = 50):
         self.df = df
-        self.max_length = 20
+        self.max_length = max_len
         self.tokenizer = None
         self.num_words = 0
-
+        self.embedding_matrix = None
+        
     def preprocess_data(self, field="text"):
         self.df[field] = self.df[field].map(lambda x: remove_URL(x))
         self.df[field] = self.df[field].map(lambda x: remove_html(x))
@@ -68,9 +74,9 @@ class NLP_preprocess(object):
         text = self.df[field]
         counter = counter_word(text)
         self.num_words = len(counter)
-        self.tokenizer = Tokenizer(num_words=self.num_words)
+        self.tokenizer = Tokenizer(num_words=self.num_words, oov_token = '<OOV>')
 
-    def import_tokenizer(self, path = '../NLP Model Training/tokenizer_1M.pickle'):
+    def import_tokenizer(self, path = '../NLP Model Training/tokenizer_100K.pickle'):
         with open(path, 'rb') as handle:
             self.tokenizer = pickle.load(handle)
 
@@ -88,3 +94,22 @@ class NLP_preprocess(object):
             df_sequences, maxlen=self.max_length, padding="post", truncating="post"
         )
         return df_padded
+    
+    def set_embedding_matrix(self):
+        embedding_dict = {}
+        with open("../glove.twitter.27B.100d.txt", "r", encoding="utf8") as f:
+            for line in f:
+                values = line.split()
+                word = values[0]
+                vectors = np.asarray(values[1:], "float32")
+                embedding_dict[word] = vectors
+        f.close()
+        word_index = self.tokenizer.word_index
+        # + 2 beacause of oov
+        self.num_words = len(word_index) + 2
+        self.embedding_matrix = np.zeros((self.num_words, 100))
+        for word, i in word_index.items():
+            if i < self.num_words:
+                emb_vec = embedding_dict.get(word)
+                if emb_vec is not None:
+                    self.embedding_matrix[i] = emb_vec
