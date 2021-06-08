@@ -17,7 +17,7 @@ class BitcoinNLPStrategy2(object):
         new_position = self.signal.get_position(datetime)
         # print(cash, self.signal.get_position(datetime), new_position)
         self.position = prev_position
-        if new_position * prev_position < 0:
+        if new_position * prev_position <= 0:
             self.position = new_position
         else:
             if abs(new_position) > abs(prev_position * 1.5):

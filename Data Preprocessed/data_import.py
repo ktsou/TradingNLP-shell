@@ -34,6 +34,7 @@ from IPython.display import display, clear_output
 
 from pathlib import Path
 
+BTC_PRICE_DATA_FILEPATH = '../Data/bitstampUSD_1-min_data_2012-01-01_to_2021-03-31.csv'
 
 def binary_search(arr, low, high, x):
     # Check base case
@@ -81,7 +82,7 @@ def preprocess_textual(path):
     return text_data
 
 def preprocess_BTC():
-    btc_data = pd.read_csv('../Data/bitstampUSD_1-min_data_2012-01-01_to_2021-03-31.csv', sep='|', names=['col1'])
+    btc_data = pd.read_csv(BTC_PRICE_DATA_FILEPATH, sep='|', names=['col1'])
 
     # split data into columns with ','
     btc_data = btc_data.col1.str.split(',', expand=True)
@@ -96,8 +97,8 @@ def preprocess_BTC():
 
 def connect_datasets(text_data, btc_data):
     # Find start and end datetimes of textual dataset in minute accuracy
-    end = pd.to_datetime(text_data.loc[0]['date'][:-2] + '00')
-    start = pd.to_datetime(text_data.loc[len(text_data) - 1]['date'][:-2] + '00')
+    end = pd.to_datetime(text_data.iloc[0]['date'][:-2] + '00')
+    start = pd.to_datetime(text_data.iloc[-1]['date'][:-2] + '00')
 
     # Convert the two datetimes into Unix timestamps to match BTC dataset
     start_ts = start.replace(tzinfo=timezone.utc).timestamp()
@@ -118,7 +119,7 @@ def connect_datasets(text_data, btc_data):
 
     # Finaly get the average Open price during each hour to match the timetable dictionary
     BTC_price_per_hour = submatrix_df.groupby(['date']).Open.apply(np.mean).reset_index()
-    BTC_price_per_hour.index = [text_data.loc[0]['date'][:-8] + str(row['date']) for idx, row in
+    BTC_price_per_hour.index = [text_data.iloc[0]['date'][:-8] + str(row['date']) for idx, row in
                                 BTC_price_per_hour.iterrows()]
 
     return BTC_price_per_hour
