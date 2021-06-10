@@ -16,9 +16,10 @@ class Signal2(object):
 
     def get_position(self, datetime):
         mean, stdv = self.get_statistics(datetime)
+        #mean, stdv = 0.5, 1
         return -10000 * (self.data[datetime] - mean) / stdv
 
-class Signal3(object):
+class Signal(object):
 
     def __init__(self, data):
         self.data = data
@@ -56,10 +57,10 @@ class Signal4(object):
     def get_position(self, datetime):
         #mean, stdv = self.get_statistics(datetime)
         # r = 10
-        if self.data[datetime] > 0.5:
-            return 1000
-        elif  self.data[datetime] < 0.35:
+        if self.data[datetime] > 0.88:
             return -1000
+        elif  self.data[datetime] < 0.68:
+            return 1000
         else:
             return 1
 
@@ -82,7 +83,7 @@ class Signal3(object):
         # r = 10
         # if self.data[datetime] > 0.7 or self.data[datetime] < 0.3:
         #     r = -10
-        return (self.data[datetime] - mean)
+        return -self.data[datetime]
     
 class RandomSignal(object):
 

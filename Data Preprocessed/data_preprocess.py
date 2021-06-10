@@ -110,7 +110,7 @@ class NLP_preprocess(object):
         
 
     def spam_filtering(self):
-        spam_indexes = self.df[self.df['spam'] == set()].index
+        spam_indexes = self.df[self.df['spam'] != set()].index
         self.df.drop(spam_indexes, inplace=True)
 
     def set_tokenizer(self, field="text"):

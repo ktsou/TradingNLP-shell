@@ -3,9 +3,10 @@ from custom_trading_engine import *
 
 class BitcoinNLPStrategy2(object):
 
-    def __init__(self):
+    def __init__(self, repos = 1.5):
         self.position = 0
         self.signal = None
+        self.repos = repos
 
     def add_signal(self, signal):
         self.signal = signal
@@ -30,9 +31,10 @@ class BitcoinNLPStrategy2(object):
 
 class BitcoinNLPStrategy(object):
 
-    def __init__(self):
+    def __init__(self, repos = 1.5):
         self.position = 0
         self.signal = None
+        self.repos = repos
 
     def add_signal(self, signal):
         self.signal = signal
@@ -47,9 +49,9 @@ class BitcoinNLPStrategy(object):
         if new_position * prev_position < 0:
             self.position = new_position
         else:
-            if abs(new_position) > abs(prev_position * 1.5):
+            if abs(new_position) > abs(prev_position * self.repos):
                 self.position = new_position
-            elif abs(new_position) < abs(prev_position / 1.5):
+            elif abs(new_position) < abs(prev_position / self.repos):
                 self.position = new_position
 
         return self.position
