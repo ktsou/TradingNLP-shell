@@ -83,7 +83,7 @@ class Signal3(object):
         # r = 10
         # if self.data[datetime] > 0.7 or self.data[datetime] < 0.3:
         #     r = -10
-        return self.data[datetime]
+        return -(self.data[datetime] - mean)/stdv
     
 class RandomSignal(object):
 

@@ -104,7 +104,6 @@ def spam_filtering_2g(text):
     spam_words = set(['for free', 'free btc', 'free bitcoin', '100 free', 'on sale', 'learn more', 'use code'])
     return set(generate_ngrams(text, n_gram=2, stop=False)).intersection(spam_words)
 
-
 ##################################################################################
 
 ##################################################################################
@@ -121,6 +120,7 @@ class NLP_preprocess(object):
         self.tokenizer = None
         self.num_words = 0
         self.embedding_matrix = None
+        self.banned_users = set()
 
     # Preprocess textual data for applying sentiment analysis
     def preprocess_data(self, field="text"):
@@ -141,8 +141,29 @@ class NLP_preprocess(object):
 
         #get rid of non empy sets i.e. spams
         spam_indexes = self.df[self.df['spam'] != set()].index
-
         self.df.drop(spam_indexes, inplace=True)
+
+    # Get rid of suspicious users
+    def flag_users(self, threshold = 100):
+
+        spam_users = list(self.banned_users)
+
+        # flag users that have send the same message multiple times
+        self.df['duplicate'] = self.df.duplicated(subset=['text'], keep=False)
+        spam_users += list(self.df[self.df['duplicate']]['username'])
+
+        # flag users that have more than a threshold (default = 100) messages during a day
+        messages_per_user = self.df.groupby(['username'], as_index=False).size()
+        spam_users += list(messages_per_user[messages_per_user['size'] > threshold]['username'])
+
+        self.banned_users = set(spam_users)
+
+        #get rid of flagged users withing the dataframe
+        self.df['flagged'] = self.df["username"].map(lambda x: {x}.intersection(self.banned_users))
+        spam_indexes = self.df[self.df['flagged'] != set()].index
+        self.df.drop(spam_indexes, inplace=True)
+
+
 
     # initialize text tokenizer
     def set_tokenizer(self, field="text"):
