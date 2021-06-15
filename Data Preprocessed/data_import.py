@@ -26,8 +26,6 @@ from scipy import stats
 from random import sample
 import statsmodels.api as sm
 
-import yahoo_finance as yf
-import yahoo_fin.stock_info as si
 
 import statsmodels
 from IPython.display import display, clear_output
@@ -36,6 +34,7 @@ from pathlib import Path
 
 BTC_PRICE_DATA_FILEPATH = '../Data/bitstampUSD_1-min_data_2012-01-01_to_2021-03-31.csv'
 
+# simple binary_search
 def binary_search(arr, low, high, x):
     # Check base case
     if high >= low:
@@ -59,7 +58,9 @@ def binary_search(arr, low, high, x):
         # Element is not present in the array
         return -1
 
+# Properly import textual data from csv into a pandas.DataFrame
 def preprocess_textual(path):
+
     # Import all data as 1 column
     text_data = pd.read_csv(path, sep='|', names=['col1'])
 
@@ -81,7 +82,9 @@ def preprocess_textual(path):
 
     return text_data
 
+# Properly import Bitcoin price data from csv into a pandas.DataFrame
 def preprocess_BTC():
+
     btc_data = pd.read_csv(BTC_PRICE_DATA_FILEPATH, sep='|', names=['col1'])
 
     # split data into columns with ','
@@ -94,8 +97,12 @@ def preprocess_BTC():
 
     return btc_data
 
-
+# Takes input two pandas.DataFrames :
+# text_data : datetime seconds accuracy (subset)
+# btc_data :  unix timestamps minutes accuracy (superset)
+# find the text_data datetimes in the btc_price dataset and connect the two datasets
 def connect_datasets(text_data, btc_data):
+
     # Find start and end datetimes of textual dataset in minute accuracy
     end = pd.to_datetime(text_data.iloc[0]['date'][:-2] + '00')
     start = pd.to_datetime(text_data.iloc[-1]['date'][:-2] + '00')
