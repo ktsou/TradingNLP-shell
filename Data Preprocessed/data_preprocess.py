@@ -138,7 +138,11 @@ class NLP_preprocess(object):
         # df['spam'] contains the set of spam n-gramms in every text
         #self.df['spam'] = self.df[field].map(lambda x: spam_filtering_1g(x))
         self.df['spam'] = self.df["text"].map(lambda x: spam_filtering_2g(x))
-
+        
+        print("Texts containing suspicious phrases")
+        for text in self.df[self.df['spam'] != set()].text.sample(10).values:
+            print(text)
+            
         #get rid of non empy sets i.e. spams
         spam_indexes = self.df[self.df['spam'] != set()].index
         self.df.drop(spam_indexes, inplace=True)
@@ -151,11 +155,20 @@ class NLP_preprocess(object):
         # flag users that have send the same message multiple times
         self.df['duplicate'] = self.df.duplicated(subset=['text'], keep=False)
         spam_users += list(self.df[self.df['duplicate']]['username'])
-
+        
+        print("Duplicate messages in a day")
+        for text in self.df[self.df['duplicate'] == True].text.sample(10).values:
+            print(text)
         # flag users that have more than a threshold (default = 100) messages during a day
         messages_per_user = self.df.groupby(['username'], as_index=False).size()
-        spam_users += list(messages_per_user[messages_per_user['size'] > threshold]['username'])
-
+        multiple_messages_users = list(messages_per_user[messages_per_user['size'] > threshold]['username'])
+        spam_users += multiple_messages_users
+        
+        print("Over ", threshold, " messages from sender in a day")
+        for user in np.random.choice(multiple_messages_users,5):
+            for text in self.df[self.df['username'] == user].text.sample(2).values:
+                print(text)
+            
         self.banned_users = set(spam_users)
 
         #get rid of flagged users withing the dataframe

@@ -117,7 +117,7 @@ def connect_datasets(text_data, btc_data):
     end_btc = binary_search(btc_data['Timestamp'], 0, len(btc_data.index) - 1, end_ts)
 
     # Get the submatrix of BTC Open price data during between the two datetimes and convert it to DataFrame
-    submatrix = btc_data.iloc[start_btc:end_btc + 1]['Open'].astype(float)
+    submatrix = btc_data.iloc[start_btc:end_btc + 1].astype(float)
     submatrix_df = pd.DataFrame(submatrix)
 
     # Add date column to the dataframe with the utc datetime (here only Hours)
@@ -125,8 +125,13 @@ def connect_datasets(text_data, btc_data):
         submatrix_df.loc[i, 'date'] = datetime.utcfromtimestamp(int(btc_data.loc[i, 'Timestamp'])).strftime('%H')
 
     # Finaly get the average Open price during each hour to match the timetable dictionary
-    BTC_price_per_hour = submatrix_df.groupby(['date']).Open.apply(np.mean).reset_index()
-    BTC_price_per_hour.index = [text_data.iloc[0]['date'][:-8] + str(row['date']) for idx, row in
-                                BTC_price_per_hour.iterrows()]
+    #BTC_price_per_hour = submatrix_df.groupby(['date']).Open.apply(np.mean).reset_index()
+    BTC_open_per_hour = pd.DataFrame(submatrix_df.groupby(['date']).Open.first())
+    BTC_close_per_hour = pd.DataFrame(submatrix_df.groupby(['date']).Close.last())
+    print(BTC_open_per_hour, BTC_close_per_hour)
+    BTC_price_per_hour = pd.concat([BTC_open_per_hour,BTC_close_per_hour], axis=1)
+    BTC_price_per_hour.columns = ['open','close']
+    BTC_price_per_hour.index = [text_data.iloc[0]['date'][:-8] + str(idx) for idx, row in
+                                BTC_open_per_hour.iterrows()]
 
     return BTC_price_per_hour
