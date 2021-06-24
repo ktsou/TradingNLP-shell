@@ -128,10 +128,28 @@ def connect_datasets(text_data, btc_data):
     #BTC_price_per_hour = submatrix_df.groupby(['date']).Open.apply(np.mean).reset_index()
     BTC_open_per_hour = pd.DataFrame(submatrix_df.groupby(['date']).Open.first())
     BTC_close_per_hour = pd.DataFrame(submatrix_df.groupby(['date']).Close.last())
-    print(BTC_open_per_hour, BTC_close_per_hour)
+
     BTC_price_per_hour = pd.concat([BTC_open_per_hour,BTC_close_per_hour], axis=1)
     BTC_price_per_hour.columns = ['open','close']
     BTC_price_per_hour.index = [text_data.iloc[0]['date'][:-8] + str(idx) for idx, row in
                                 BTC_open_per_hour.iterrows()]
 
     return BTC_price_per_hour
+
+#save the total BTC hourly price chart to a csv similarly to the above procedure
+def BTC_total():
+
+    btc = pd.read_csv('./Data Preprocessed/btc_price_processed.csv', index_col=0)
+    submatrix = btc.iloc[2992636:3708137].astype(float)
+    submatrix_df = pd.DataFrame(submatrix)
+    format = "%Y-%m-%d %H"
+    submatrix_df['date'] = btc.Timestamp.apply(lambda x: datetime.utcfromtimestamp(int(x)).strftime(format))
+
+    BTC_open_per_hour = pd.DataFrame(submatrix_df.groupby(['date']).Open.first())
+    BTC_close_per_hour = pd.DataFrame(submatrix_df.groupby(['date']).Close.last())
+
+    plt.plot(BTC_open_per_hour.values)
+    plt.plot(BTC_close_per_hour.values)
+    plt.show()
+
+    BTC_open_per_hour.to_csv('BTC_full.csv')

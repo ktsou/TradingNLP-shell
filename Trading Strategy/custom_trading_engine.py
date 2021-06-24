@@ -6,12 +6,20 @@ import matplotlib.pyplot as plt
 from matplotlib import style
 plt.style.use('dark_background')
 
+import bokeh
+from bokeh.layouts import gridplot
+from bokeh.plotting import figure, output_file, show
+from bokeh.io import curdoc
 #Trading engine
 class customNLP(object):
 
     def __init__(self, cash=None, data=None, strategy=None):
         self.cash = cash
-        self.data = pd.DataFrame(data, index=data.index)
+        self.data = pd.DataFrame(data)
+        self.data_plot = []
+        self.index_plot = []
+        self.data.columns = ['Open','Close']
+        self.data.index = data.index
         self.strategy = strategy
 
         self.position = 0
@@ -144,13 +152,17 @@ class customNLP(object):
             ### This is application specific ##############################
             ### If the dataset is splitted and suffled ####################
             ### whenever I move to a new subset (checked by date) #########
-            ### I close all previous open positions at the previous price #
+            ### I close all previous open positions at the previous close price #
             if split and date != index.strftime('%Y-%m-%d'):
-                self.close(self.data.loc[prev_index]["Open"])
+                self.close(self.data.loc[prev_index]["Close"])
                 # check again if total balance has gone negative terminate
                 # and update statistics (we use the previous index here)
                 if not self.marked_to_market(row[0], prev_index):
                     break
+                self.data_plot.append(np.nan)
+                self.index_plot.append(np.nan)
+            self.data_plot.append(row['Open'])
+            self.index_plot.append(index)
 
             #save ccurrent datetime for next itteration
             date = index.strftime('%Y-%m-%d')
@@ -198,7 +210,7 @@ class customNLP(object):
 
                 # check again if total balance has gone negative terminate
                 # and update statistics
-                if not self.marked_to_market(row[0], index):
+                if not self.marked_to_market(row['Close'], index):
                     break
 
                 # used for split datasets
@@ -209,7 +221,7 @@ class customNLP(object):
     #plot trading strategy on price from save statistics dataset
     def plot(self):
         fig = plt.figure(figsize=(18, 10))
-        plt.plot(self.data.values)
+        plt.plot(self.data.values, color = "lightskyblue")
         x = 0
         prev = 0
         for index, row in self.metrics.iterrows():
@@ -232,3 +244,33 @@ class customNLP(object):
             prev = position
             x += 1
         plt.show()
+
+    def plot2(self,my_data, color = 'steelblue', line = 2):
+        df = self.metrics.dropna()
+        df['sign'] = df['Position USD'].apply(np.sign)
+        df['change'] = df['Position USD'].diff().fillna(1)
+        long = df[df['sign'] == 1][df['change'] != 0]
+        short = df[df['sign'] == -1][df['change'] != 0]
+        close = df[df['sign'] == 0][df['change'] != 0]
+        p2 = figure(x_axis_type="datetime", title="Trading History", plot_width=1200, plot_height=400)
+        # p2.grid.grid_line_alpha = 1
+        p2.xaxis.axis_label = 'Date'
+        p2.yaxis.axis_label = 'Price'
+        # p2.ygrid.band_fill_color = "lightsteelblue"
+        # p2.ygrid.band_fill_alpha = 0.1
+
+        curdoc().theme = 'dark_minimal'
+        p2.circle(long.index.values, long['Price USD'].values, size=4, legend_label='long',
+                  color='mediumseagreen', alpha=1)
+        p2.circle(short.index.values, short['Price USD'].values, size=4, legend_label='short',
+                  color='indianred', alpha=1)
+        p2.circle(close.index.values, close['Price USD'].values, size=4, legend_label='close',
+                  color='goldenrod', alpha=1)
+        #p2.line(self.data.index.values, self.data['Open'].values, legend_label='avg', color='navy')
+        p2.line(my_data.index.values, my_data['Open'].values, legend_label='BTC price', color='grey', alpha=0.2)
+        p2.line(self.index_plot, self.data_plot, legend_label='Trading section', color=color, alpha=0.8, line_width=line)
+        p2.legend.location = "top_left"
+
+        #output_file("stocks.html", title="stocks.py example")
+
+        bokeh.plotting.show(p2)
