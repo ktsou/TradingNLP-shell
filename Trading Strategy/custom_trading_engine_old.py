@@ -4,16 +4,13 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 from matplotlib import style
-
 plt.style.use('dark_background')
 
 import bokeh
 from bokeh.layouts import gridplot
 from bokeh.plotting import figure, output_file, show
 from bokeh.io import curdoc
-
-
-# Trading engine
+#Trading engine
 class customNLP(object):
 
     def __init__(self, cash=None, data=None, strategy=None):
@@ -21,22 +18,22 @@ class customNLP(object):
         self.data = pd.DataFrame(data)
         self.data_plot = []
         self.index_plot = []
-        self.data.columns = ['Open', 'Close']
+        self.data.columns = ['Open','Close']
         self.data.index = data.index
         self.strategy = strategy
         self.spreads = None
-        self.position_asset = 0
 
         self.position = 0
         self.price = None
         self.mtm = cash
         self.returns = []
-        self.metrics = pd.DataFrame(columns=['Position USD', 'Position BTC', 'Price USD', 'Cash USD', 'Portfolio Marked'],
+        self.metrics = pd.DataFrame(columns=['Position USD', 'Price USD', 'Cash USD', 'Portfolio Marked'],
                                     index=self.data.index)
         # print(self.metrics)
 
         self.stoploss = None
         self.take_profit = None
+
 
     def set_cash(self, cash):
         self.cash = [cash]
@@ -58,8 +55,6 @@ class customNLP(object):
         for column in statistics:
             if column == 'Position USD':
                 self.metrics.loc[datetime][column] = self.position
-            elif column == 'Position BTC':
-                self.metrics.loc[datetime][column] = self.position_asset
             elif column == 'Price USD':
                 self.metrics.loc[datetime][column] = self.price
             elif column == 'Cash USD':
@@ -73,7 +68,7 @@ class customNLP(object):
     def update_positions(self, cash, position, price):
 
         self.cash = cash
-        self.position += position
+        self.position = position
         self.price = price
 
     # Calcualtes the value of portfolio as
@@ -81,17 +76,16 @@ class customNLP(object):
     # and appends current portfolio stats to dataset
     def marked_to_market(self, price, index):
         # if not registered position portfolio value = cash
-        if self.position_asset == 0:
+        if self.price == None:
             self.mtm = self.cash
             return True
 
         # calculates position in amounts of asset
-        date = index.strftime('%Y-%m-%d')
-
+        position_asset = self.position / self.price
         # multiplying by current asset price
-        self.mtm = self.cash + self.position_asset * price
+        self.mtm = self.cash + position_asset * price
         # append current statistics to dataset
-        self.append_statistics(['Position USD', 'Position BTC', 'Price USD', 'Cash USD', 'Portfolio Marked'], index)
+        self.append_statistics(['Position USD', 'Price USD', 'Cash USD','Portfolio Marked'], index)
 
         # portfolio value < 0 returns false otherwise true
         if self.mtm < 0:
@@ -102,18 +96,15 @@ class customNLP(object):
             return True
 
     # orders engine to open a long position of a USD amount at a specific price
-    def buy(self, amount, price, s):
-        # calculates remaining cash after opening long position
+    def buy(self, amount, price):
+        #calculates remaining cash after opening long position
         cash = self.cash - amount
-
-        spread_adjusted_price = price * (1 + s)
 
         # if we have enough we buy, update positions return True
         if cash >= 0:
-            self.position_asset += amount / spread_adjusted_price
             if self.verbose:
-                print("opening LONG position of ", amount, " USD at ", spread_adjusted_price, " $")
-            self.update_positions(cash, amount, spread_adjusted_price)
+                print("buying ", amount, " BTC at ", price, " $")
+            self.update_positions(cash, amount, price)
             return True
         # return False
         else:
@@ -122,19 +113,17 @@ class customNLP(object):
             return False
 
     # orders engine to open a short position of a USD amount at a specific price
-    def sell(self, amount, price, s):
-
-        spread_adjusted_price = price * (1 - s)
+    def sell(self, amount, price):
         # !! amount is given in absolute prices !!
-        self.position_asset -= amount / spread_adjusted_price
+
         # here we can always sell
         if self.verbose:
-            print("opening SHORT position of ", abs(amount), " BTC at ", spread_adjusted_price, " $")
+            print("selling ", abs(amount), " BTC at ", price, " $")
 
         # calculates remaining cash after opening short position
         cash = self.cash + amount
         # update positions
-        self.update_positions(cash, -amount, spread_adjusted_price)
+        self.update_positions(cash, -amount, price)
 
         return True
 
@@ -149,8 +138,6 @@ class customNLP(object):
 
         # since position is closed the cash is equal to the entire portfolio value
         cash = self.mtm
-        self.position_asset = 0
-        self.position = 0
         self.update_positions(cash, 0, price)
         return True
 
@@ -167,7 +154,7 @@ class customNLP(object):
         self.verbose = verbose
         date = self.data.index[0].strftime('%Y-%m-%d')
         for index, row in self.data.iterrows():
-
+            
             ### This is application specific ##############################
             ### If the dataset is splitted and suffled ####################
             ### whenever I move to a new subset (checked by date) #########
@@ -183,7 +170,7 @@ class customNLP(object):
             self.data_plot.append(row['Open'])
             self.index_plot.append(index)
 
-            # save ccurrent datetime for next itteration
+            #save ccurrent datetime for next itteration
             date = index.strftime('%Y-%m-%d')
 
             ###############################################################
@@ -210,6 +197,7 @@ class customNLP(object):
             if not self.marked_to_market(row[0], index):
                 break
 
+
             # apply strategy and take new optimal position
             new_position = self.strategy.apply(index, self.position, row[0], self.mtm)
 
@@ -223,12 +211,17 @@ class customNLP(object):
                 # When updating positions I close current position and open
                 # a new one since trading is assumed commission free here
 
+                s_close = 0
+                #If the new position is opposite of the current position i close position including spread
+                if new_position*self.position < 0:
+                    s_close = s
 
-                # If the new position is opposite of the current position i close position including spread
-                if new_position - self.position > 0:
-                    self.buy(new_position - self.position, row[0], s/2.)
-                elif new_position - self.position < 0:
-                    self.sell(self.position - new_position, row[0], s/2.)
+                if new_position > 0:
+                    self.close(row[0])
+                    self.buy(new_position, row[0])
+                elif new_position < 0:
+                    self.close(row[0])
+                    self.sell(-new_position, row[0])
 
                 # if new_position > 0:
                 #     self.close(row[0])
@@ -247,10 +240,10 @@ class customNLP(object):
 
         self.close(self.data.iloc[-1])
 
-    # plot trading strategy on price from save statistics dataset
+    #plot trading strategy on price from save statistics dataset
     def plot(self):
         fig = plt.figure(figsize=(18, 10))
-        plt.plot(self.data.values, color="lightskyblue")
+        plt.plot(self.data.values, color = "lightskyblue")
         x = 0
         prev = 0
         for index, row in self.metrics.iterrows():
@@ -262,10 +255,10 @@ class customNLP(object):
 
                 if position > 0:
                     my_color = "green"
-                    s = 100 * position / (self.metrics['Position USD'].dropna().values.max() + 1)
+                    s = 100 * position / (self.metrics['Position USD'].dropna().values.max()+1)
                 elif position < 0:
                     my_color = "red"
-                    s = -100 * position / (self.metrics['Position USD'].dropna().values.max() + 1)
+                    s = -100 * position / (self.metrics['Position USD'].dropna().values.max()+1)
                 else:
                     my_color = "yellow"
                     s = 20
@@ -274,7 +267,7 @@ class customNLP(object):
             x += 1
         plt.show()
 
-    def plot2(self, my_data, color='steelblue', line=2):
+    def plot2(self,my_data, color = 'steelblue', line = 2):
         df = self.metrics.dropna()
         df['sign'] = df['Position USD'].apply(np.sign)
         df['change'] = df['Position USD'].diff().fillna(1)
@@ -295,12 +288,11 @@ class customNLP(object):
                   color='indianred', alpha=1)
         p2.circle(close.index.values, close['Price USD'].values, size=4, legend_label='close',
                   color='goldenrod', alpha=1)
-        # p2.line(self.data.index.values, self.data['Open'].values, legend_label='avg', color='navy')
+        #p2.line(self.data.index.values, self.data['Open'].values, legend_label='avg', color='navy')
         p2.line(my_data.index.values, my_data['Open'].values, legend_label='BTC price', color='grey', alpha=0.2)
-        p2.line(self.index_plot, self.data_plot, legend_label='Trading section', color=color, alpha=0.8,
-                line_width=line)
+        p2.line(self.index_plot, self.data_plot, legend_label='Trading section', color=color, alpha=0.8, line_width=line)
         p2.legend.location = "top_left"
 
-        # output_file("stocks.html", title="stocks.py example")
+        #output_file("stocks.html", title="stocks.py example")
 
         bokeh.plotting.show(p2)
