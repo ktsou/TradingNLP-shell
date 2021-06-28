@@ -16,11 +16,9 @@ from bokeh.io import curdoc
 # Trading engine
 class customNLP(object):
 
-    def __init__(self, cash=None, data=None, strategy=None):
+    def __init__(self, cash=None, data=None, strategy=None, leverage=False):
         self.cash = cash
         self.data = pd.DataFrame(data)
-        self.data_plot = []
-        self.index_plot = []
         self.data.columns = ['Open', 'Close']
         self.data.index = data.index
         self.strategy = strategy
@@ -32,11 +30,17 @@ class customNLP(object):
         self.mtm = cash
         self.returns = []
         self.metrics = pd.DataFrame(columns=['Position USD', 'Position BTC', 'Price USD', 'Cash USD', 'Portfolio Marked'],
-                                    index=self.data.index)
+                                    index=self.data.index.values)
         # print(self.metrics)
 
         self.stoploss = None
         self.take_profit = None
+
+        #Used for Bokeh plotting only
+        self.data_plot = []
+        self.index_plot = []
+
+        self.leverage = leverage
 
     def set_cash(self, cash):
         self.cash = [cash]
@@ -102,56 +106,79 @@ class customNLP(object):
             return True
 
     # orders engine to open a long position of a USD amount at a specific price
-    def buy(self, amount, price, s):
+    def buy(self, amount, price, s, verbose = None):
+
+        if verbose == None:
+            verbose = self.verbose
+
         # calculates remaining cash after opening long position
         cash = self.cash - amount
-
+        # calculate the spread adjusted price
         spread_adjusted_price = price * (1 + s)
 
         # if we have enough we buy, update positions return True
-        if cash >= 0:
+        if cash >= 0 or self.leverage:
+            # calculate the position in asset amount
             self.position_asset += amount / spread_adjusted_price
-            if self.verbose:
-                print("opening LONG position of ", amount, " USD at ", spread_adjusted_price, " $")
+            if verbose:
+                print("Opening LONG position of ", amount, " USD at ", spread_adjusted_price, " $")
             self.update_positions(cash, amount, spread_adjusted_price)
             return True
         # return False
         else:
-            if self.verbose:
-                print("Insufficient Capital")
-            return False
+            # calculate the position in asset amount
+            self.position_asset += self.cash / spread_adjusted_price
+            if verbose:
+                print("Insufficient Capital - Opening LONG position of ", self.cash, " USD at ", spread_adjusted_price, " $")
+            self.update_positions(0, self.cash, spread_adjusted_price)
+            return True
+
 
     # orders engine to open a short position of a USD amount at a specific price
-    def sell(self, amount, price, s):
+    def sell(self, amount, price, s, verbose = None):
 
-        spread_adjusted_price = price * (1 - s)
-        # !! amount is given in absolute prices !!
-        self.position_asset -= amount / spread_adjusted_price
-        # here we can always sell
-        if self.verbose:
-            print("opening SHORT position of ", abs(amount), " BTC at ", spread_adjusted_price, " $")
+        if verbose == None:
+            verbose = self.verbose
 
         # calculates remaining cash after opening short position
         cash = self.cash + amount
+        # calculate the spread adjusted price
+        spread_adjusted_price = price * (1 - s)
+        # !! amount is given in absolute prices !!
+
+        # calculate the position in asset amount
+        self.position_asset -= amount / spread_adjusted_price
+        # here we can always sell
+        if verbose:
+            print("Opening SHORT position of ", abs(amount), " USD at ", spread_adjusted_price, " $")
+
+
         # update positions
         self.update_positions(cash, -amount, spread_adjusted_price)
 
         return True
 
     # orders engine to close current position at a specific price
-    def close(self, price):
+    def close(self, price, s):
         # if no open position return
         if self.position == 0:
             return
-        if self.verbose:
-            print("closing ", self.position, " BTC at ", price, " $")
+        elif self.position > 0:
+            if self.verbose:
+                print("Closing LONG position of ", self.position, " USD at ", price, " $")
+            self.sell(self.position, price, s/2., verbose = False)
+        else:
+            if self.verbose:
+                print("Closing SHORT position of ", self.position, " USD at ", price, " $")
+            self.buy(-self.position, price, s/2., verbose = False)
+
         # self.returns.append(self.mtm - self.cash)
 
         # since position is closed the cash is equal to the entire portfolio value
         cash = self.mtm
-        self.position_asset = 0
-        self.position = 0
-        self.update_positions(cash, 0, price)
+        # self.position_asset = 0
+        # self.position = 0
+        # self.update_positions(cash, 0, price)
         return True
 
     def set_stoploss(self, sl):
@@ -173,7 +200,7 @@ class customNLP(object):
             ### whenever I move to a new subset (checked by date) #########
             ### I close all previous open positions at the previous close price #
             if split and date != index.strftime('%Y-%m-%d'):
-                self.close(self.data.loc[prev_index]["Close"])
+                self.close(self.data.loc[prev_index]["Close"], self.spreads[date])
                 # check again if total balance has gone negative terminate
                 # and update statistics (we use the previous index here)
                 if not self.marked_to_market(row[0], prev_index):
@@ -200,7 +227,7 @@ class customNLP(object):
                         price = self.price * (1 - np.sign(self.position) * self.stoploss)
                         if not self.marked_to_market(price, index):
                             break
-                        self.close(price)
+                        self.close(price,  self.spreads[date])
                         prev_index = index
                         continue
             ###############################################################
@@ -211,18 +238,19 @@ class customNLP(object):
                 break
 
             # apply strategy and take new optimal position
-            new_position = self.strategy.apply(index, self.position, row[0], self.mtm)
+            new_position = self.strategy.apply(index, self.position, self.mtm)
 
             # If the new optimal position is different than the last position update positions
             if math.ceil(new_position) != math.ceil(self.position):
+
                 if self.spreads is None:
                     s = 0
                 else:
                     s = self.spreads[date]
-                print(s)
+                #print(s)
+
                 # When updating positions I close current position and open
                 # a new one since trading is assumed commission free here
-
 
                 # If the new position is opposite of the current position i close position including spread
                 if new_position - self.position > 0:
@@ -245,7 +273,7 @@ class customNLP(object):
                 # used for split datasets
             prev_index = index
 
-        self.close(self.data.iloc[-1])
+        self.close(self.data.iloc[-1],  self.spreads[date])
 
     # plot trading strategy on price from save statistics dataset
     def plot(self):
@@ -281,7 +309,7 @@ class customNLP(object):
         long = df[df['sign'] == 1][df['change'] != 0]
         short = df[df['sign'] == -1][df['change'] != 0]
         close = df[df['sign'] == 0][df['change'] != 0]
-        p2 = figure(x_axis_type="datetime", title="Trading History", plot_width=1200, plot_height=400)
+        p2 = figure(x_axis_type="datetime", title="Trading History", plot_width=800, plot_height=600)
         # p2.grid.grid_line_alpha = 1
         p2.xaxis.axis_label = 'Date'
         p2.yaxis.axis_label = 'Price'
@@ -294,7 +322,7 @@ class customNLP(object):
         p2.circle(short.index.values, short['Price USD'].values, size=4, legend_label='short',
                   color='indianred', alpha=1)
         p2.circle(close.index.values, close['Price USD'].values, size=4, legend_label='close',
-                  color='goldenrod', alpha=1)
+                  color='yellow', alpha=1)
         # p2.line(self.data.index.values, self.data['Open'].values, legend_label='avg', color='navy')
         p2.line(my_data.index.values, my_data['Open'].values, legend_label='BTC price', color='grey', alpha=0.2)
         p2.line(self.index_plot, self.data_plot, legend_label='Trading section', color=color, alpha=0.8,

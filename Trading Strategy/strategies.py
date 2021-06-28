@@ -1,7 +1,7 @@
 from custom_trading_engine import *
 
 
-class BitcoinNLPStrategy2(object):
+class BitcoinNLPStrategy(object):
 
     def __init__(self, repos = 1.5):
         self.position = 0
@@ -14,7 +14,7 @@ class BitcoinNLPStrategy2(object):
     def set_position(self, position):
         self.position = position
 
-    def apply(self, datetime, prev_position, new_price, cash=1):
+    def apply(self, datetime, prev_position, cash=1):
         new_position = self.signal.get_position(datetime)
         # print(cash, self.signal.get_position(datetime), new_position)
         self.position = prev_position
@@ -42,7 +42,7 @@ class BitcoinNLPStrategy(object):
     def set_position(self, position):
         self.position = position
 
-    def apply(self, datetime, prev_position, new_price, cash = 1):
+    def apply(self, datetime, prev_position, cash = 1):
         new_position = self.signal.get_position(datetime) * cash
         # print(cash, self.signal.get_position(datetime), new_position)
         self.position = prev_position

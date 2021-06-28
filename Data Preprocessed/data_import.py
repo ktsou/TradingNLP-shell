@@ -140,16 +140,19 @@ def connect_datasets(text_data, btc_data):
 def BTC_total():
 
     btc = pd.read_csv('./Data Preprocessed/btc_price_processed.csv', index_col=0)
-    submatrix = btc.iloc[2992636:3708137].astype(float)
+    btc2 = btc.shift(-1)
+
+    submatrix = btc2.iloc[2992636:3708137].astype(float)
     submatrix_df = pd.DataFrame(submatrix)
     format = "%Y-%m-%d %H"
     submatrix_df['date'] = btc.Timestamp.apply(lambda x: datetime.utcfromtimestamp(int(x)).strftime(format))
 
     BTC_open_per_hour = pd.DataFrame(submatrix_df.groupby(['date']).Open.first())
     BTC_close_per_hour = pd.DataFrame(submatrix_df.groupby(['date']).Close.last())
+    BTC_volume_per_hour = pd.DataFrame(submatrix_df.groupby(['date'])['Volume_(Currency)'].sum())
+    BTC_price_per_hour = pd.concat([BTC_open_per_hour, BTC_close_per_hour, BTC_volume_per_hour], axis=1)
+    BTC_price_per_hour.columns = ['open', 'close', 'volume']
+    # BTC_price_per_hour.index = [BTC_open_per_hour.iloc[0]['date'][:-8] + str(idx) for idx, row in
+    #                             BTC_open_per_hour.iterrows()]
 
-    plt.plot(BTC_open_per_hour.values)
-    plt.plot(BTC_close_per_hour.values)
-    plt.show()
-
-    BTC_open_per_hour.to_csv('BTC_full.csv')
+    BTC_price_per_hour.to_csv('BTC_full2_1.csv')

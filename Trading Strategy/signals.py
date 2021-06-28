@@ -1,9 +1,10 @@
 from custom_trading_engine import *
 
-class Signal2(object):
+class Signal_mean():
 
-    def __init__(self, data):
+    def __init__(self, data, pos = 1):
         self.data = data
+        self.pos = pos
 
     def get_statistics(self, datetime):
         data = []
@@ -16,13 +17,49 @@ class Signal2(object):
 
     def get_position(self, datetime):
         mean, stdv = self.get_statistics(datetime)
-        #mean, stdv = 0.5, 1
-        return -10000 * (self.data[datetime] - mean) / stdv
+        return self.pos * (self.data[datetime] - mean) / stdv
 
-class Signal(object):
+class Signal_mean_window():
 
-    def __init__(self, data):
+    def __init__(self, data, pos = 1, window_size = 50):
         self.data = data
+        self.pos = pos
+        self.window_size = window_size
+
+    def get_statistics(self, datetime):
+        end = self.data.index.get_loc(datetime)
+        if end >= self.window_size:
+            start = end - self.window_size
+        else:
+            start = 0
+
+        data = []
+        for idx in self.data[start:end].index:
+            # print(datetime.date(), int(datetime.strftime('%H')))
+            data.append(self.data[idx])
+
+        # print(data)
+        if len(data) < 2:
+            std = 1
+            if len(data) < 1:
+                mean = 0
+            else:
+                mean = np.mean(data)
+        else:
+            mean = np.mean(data)
+            std = np.std(data)
+        #print(data, mean, std)
+        return mean, std
+
+    def get_position(self, datetime):
+        mean, stdv = self.get_statistics(datetime)
+        return self.pos * (self.data[datetime] - mean) / stdv
+
+class Signal_standard(object):
+
+    def __init__(self, data, pos = 0.1):
+        self.data = data
+        self.pos = pos
 
     def get_statistics(self, datetime):
         data = []
@@ -34,12 +71,15 @@ class Signal(object):
         return np.mean(data), np.std(data)
 
     def get_position(self, datetime):
-        if self.data[datetime]  > 0.6 or self.data[datetime]  < 0.4:
-            return self.data[datetime] - 0.45
-        # elif self.data[datetime]  < 0.4:
-        #     return (self.data[datetime] - 0.5)
-        #return 10000 * (self.data[datetime] - mean) / stdv
+        mean, stdv = self.get_statistics(datetime)
+        if self.data[datetime] > mean:
+            return self.pos
+        elif self.data[datetime] < mean:
+            return -self.pos
+        else:
+            return 0
 
+# Not currently used
 class Signal4(object):
 
     def __init__(self, data):
