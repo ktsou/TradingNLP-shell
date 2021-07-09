@@ -72,6 +72,7 @@ class Signal_standard(object):
 
     def get_position(self, datetime):
         mean, stdv = self.get_statistics(datetime)
+        mean = 0.5
         if self.data[datetime] > mean:
             return self.pos
         elif self.data[datetime] < mean:
