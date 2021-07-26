@@ -13,7 +13,8 @@ import pickle
 #default filepaths
 EMBEDDINGS_FILEPATH = "../glove.twitter.27B.100d.txt"
 
-DEFAULT_IMPORT_TOKENIZER_FILEPATH = '../NLP Model Training/tokenizer_100K.pickle'
+#DEFAULT_IMPORT_TOKENIZER_FILEPATH = '../NLP Model Training/tokenizer_100K.pickle'
+DEFAULT_IMPORT_TOKENIZER_FILEPATH = '../NLP Model Training/tokenizer_1M.pickle'
 
 ##################################################################################
 #
@@ -139,10 +140,10 @@ class NLP_preprocess(object):
         #self.df['spam'] = self.df[field].map(lambda x: spam_filtering_1g(x))
         self.df['spam'] = self.df["text"].map(lambda x: spam_filtering_2g(x))
         
-        print("Texts containing suspicious phrases")
-        for text in self.df[self.df['spam'] != set()].text.sample(10).values:
-            print(text)
-            
+        # print("Texts containing suspicious phrases")
+        # for text in self.df[self.df['spam'] != set()].text.sample(10).values:
+        #     print(text)
+        #
         #get rid of non empy sets i.e. spams
         spam_indexes = self.df[self.df['spam'] != set()].index
         self.df.drop(spam_indexes, inplace=True)
