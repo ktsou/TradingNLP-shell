@@ -67,16 +67,16 @@ class glove_1M_full_dates_hour_feed(btfeeds.GenericCSVData):
         ('openinterest', -1),
     )
 
-
-Daily<-function(df){
-    open = df %>%
-           group_by(day) %>%
-           summarise(Open = first(Open))
-    close = df %>%
-           group_by(day) %>%
-           summarise(Close = last(Close))
-    sentiment = df %>%
-           group_by(day) %>%
-           summarise(Sentiment = mean(Bitcoin))
-    cbind(open, close["Close"], sentiment["Sentiment"])
-}
+#
+# Daily<-function(df){
+#     open = df %>%
+#            group_by(day) %>%
+#            summarise(Open = first(Open))
+#     close = df %>%
+#            group_by(day) %>%
+#            summarise(Close = last(Close))
+#     sentiment = df %>%
+#            group_by(day) %>%
+#            summarise(Sentiment = mean(Bitcoin))
+#     cbind(open, close["Close"], sentiment["Sentiment"])
+# }

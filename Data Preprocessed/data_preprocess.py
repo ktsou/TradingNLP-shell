@@ -96,13 +96,14 @@ def generate_ngrams(text, n_gram=1, stop=True):
     return ngrams
 
 # Looks of spam 1-gramms in given text and returns the intersection of the two sets
-def spam_filtering_1g(text):
-    spam_words = set(['free', 'offer', 'discount', 'sale'])
+def spam_filtering_1g(text, spam = None):
+    if spam == None:
+        spam_words = set(['free', 'offer', 'discount', 'sale', 'news'])
     return set(generate_ngrams(text, n_gram=1, stop=True)).intersection(spam_words)
 
 # Looks of spam 2-gramms in given text and returns the intersection of the two sets
 def spam_filtering_2g(text):
-    spam_words = set(['for free', 'free btc', 'free bitcoin', '100 free', 'on sale', 'learn more', 'use code'])
+    spam_words = set(['for free', 'free btc', 'free bitcoin', '100 free', 'on sale', 'learn more', 'use code', 'check out'])
     return set(generate_ngrams(text, n_gram=2, stop=False)).intersection(spam_words)
 
 ##################################################################################
